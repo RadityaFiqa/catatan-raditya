@@ -1,101 +1,116 @@
 ---
 title: "Case File Upload di Microservices: Dari Chaos ke Controlled Storage"
 date: 2025-12-27T17:00:00+07:00
-description: "Refleksi desain file upload di microservices dan dampaknya ketika failure dan lifecycle tidak diperhitungkan."
-tags: ["microservices", "backend", "architecture", "file-upload", "storage"]
+description: "Refleksi file upload, distributed state, dan lifecycle resource di sistem microservices."
+tags: ["backend", "microservices", "architecture", "file-upload", "engineering-story"]
 categories: ["Engineering Journey"]
 draft: false
 ---
 
-> File upload jarang meledak di awal, tapi hampir selalu menghantui di belakang.
+## Prolog
 
-## Pendahuluan
+File upload hampir selalu datang sebagai permintaan kecil.  
+“Cuma upload dokumen,” katanya.
 
-File upload sering diposisikan sebagai detail implementasi.  
-Selama request berhasil dan file tersimpan, fitur dianggap selesai.
+Di sistem yang masih sederhana, asumsi itu jarang bermasalah.  
+File tersimpan, response 200, fitur dianggap selesai.
 
-Masalahnya, dalam arsitektur **microservices**, file upload bukan sekadar fitur — ia adalah **state**.  
-Dan state yang tidak dikontrol akan selalu bocor.
-
-Di sistem yang saya tangani, tidak ada error besar.  
-Yang ada hanyalah akumulasi:
-- File berhasil di-upload, tetapi proses bisnis gagal
-- File tidak pernah digunakan, namun tidak pernah dihapus
-- Storage tumbuh tanpa owner dan tujuan yang jelas
+Masalahnya baru terasa ketika sistem membesar — ketika service mulai terpisah, proses bisnis tidak lagi linear, dan kegagalan tidak bisa diasumsikan sebagai kejadian langka.  
+Di titik itu, file upload berhenti menjadi detail teknis. Ia berubah menjadi **state terdistribusi** yang diam-diam ikut menentukan stabilitas sistem.
 
 ---
 
-## Di Mana Desain Mulai Salah
+## Masalah Nyata di Lapangan
 
-Pola yang digunakan sebenarnya umum:
-1. Request masuk
-2. File disimpan
-3. Proses bisnis dijalankan
+Di production, tidak ada satu insiden besar yang langsung menjelaskan semuanya.  
+Yang muncul justru pola kegagalan kecil tapi berulang:
 
-Masalahnya bukan di alurnya, tetapi di **asumsi desain**.
+- File berhasil di-upload, tapi proses bisnis berikutnya gagal  
+- Retry terjadi, namun file lama tetap tersimpan  
+- Ada file yang secara teknis valid, tetapi secara bisnis tidak pernah benar-benar digunakan  
 
-File dianggap sekadar efek samping request.  
-Kegagalan dianggap kejadian langka.  
-Storage diasumsikan bisa “ikut rollback”.
+Awalnya ini terlihat seperti masalah housekeeping.  
+“Tambahkan cleanup job, selesai.”
 
-Padahal:
-- File storage bersifat **stateful**
-- Tidak ada transaksi lintas sistem
-- Failure adalah jalur eksekusi normal
-
-Setiap request yang gagal setelah upload meninggalkan **artefak permanen**.
+Pendekatan itu terasa masuk akal — sampai disadari bahwa file-file tersebut tidak bisa dihapus begitu saja.  
+Karena tidak ada kejelasan: **siapa yang sebenarnya memiliki file tersebut, dan sampai kapan ia dianggap valid**.
 
 ---
 
-## Prinsip Teknis yang Seharusnya Diterapkan
+## Analisis Teknis
 
-Solusi bukan sekadar menambah tooling, melainkan **mendisiplinkan file sebagai resource**.
+Dalam arsitektur microservices, file bukan sekadar payload.  
+Begitu ia disimpan, ia menjadi **distributed state**.
 
-Beberapa prinsip teknis yang wajib ada:
+Masalah muncul dari beberapa asumsi implisit:
 
-- **Explicit file identity**  
-  Setiap file yang masuk ke storage harus memiliki identitas yang dapat ditelusuri, bukan sekadar nama file acak.
+- Storage service diperlakukan sebagai utilitas pasif  
+- Ownership file diasosiasikan dengan request, bukan dengan proses bisnis  
+- Lifecycle file diasumsikan selesai ketika request selesai  
 
-- **Ownership dan domain context**  
-  File harus selalu tahu *siapa* yang membuatnya dan *untuk konteks apa*.  
-  File tanpa konteks adalah file yang siap menjadi orphan.
+Kenyataannya berbeda:
 
-- **Lifecycle-aware metadata**  
-  Setiap file harus ditandai apakah ia bersifat sementara atau permanen.
+- Storage service tidak tahu apakah file akan pernah dipakai  
+- Business service tidak punya kontrol penuh atas penyimpanan  
+- Request bisa gagal di tengah jalan, sementara file sudah menjadi state permanen  
 
-- **Expired-by-default mindset**  
-  File **tidak boleh diasumsikan hidup selamanya**.  
-  `expired_at` harus menjadi atribut wajib, bukan opsional.
+Kondisi ini menciptakan **failure mode yang tidak simetris**:  
+proses bisnis gagal, tetapi storage sukses.
 
-Tidak semua file layak disimpan lama.  
-Sebagian besar file hanya valid selama proses bisnis berlangsung.
-
----
-
-## Desain yang Lebih Dewasa
-
-Pendekatan yang lebih matang adalah memisahkan **lifecycle file** dari **lifecycle request**.
-
-Artinya:
-- Upload tidak berarti commit
-- Request gagal tidak meninggalkan state permanen
-- Cleanup berjalan deterministik, bukan manual
-
-File yang tidak pernah mencapai kondisi akhir dapat dihapus otomatis berdasarkan waktu hidupnya.
-
-Dengan pendekatan ini, storage berhenti menjadi tempat sampah yang diam-diam tumbuh.
+Dan state yang “setengah hidup” inilah yang paling sulit ditangani.
 
 ---
 
-## Kesimpulan
+## Pendekatan Solusi
 
-Masalah file upload di microservices hampir tidak pernah soal teknologi.  
-Ia adalah **utang desain** akibat kegagalan mendefinisikan lifecycle sejak awal.
+Solusinya bukan sekadar membersihkan file yang tertinggal.
 
-Ketika setiap file memiliki identitas, konteks, dan batas waktu hidup, sistem:
-- Lebih mudah diaudit
-- Lebih aman
-- Lebih murah untuk dioperasikan
+Perubahan paling penting justru ada pada cara memandang file itu sendiri:  
+**file adalah resource dengan lifecycle yang harus didefinisikan secara eksplisit**.
 
-Desain yang matang bukan tentang memastikan request selalu berhasil,  
-tetapi tentang memastikan **kegagalan tidak meninggalkan jejak permanen**.
+Beberapa prinsip yang kemudian dipakai:
+
+- **Ownership harus jelas**  
+  File selalu memiliki konteks bisnis yang eksplisit, bukan sekadar hasil upload.
+
+- **Resource bersifat sementara secara default**  
+  File tidak langsung dianggap permanen sampai proses bisnis menyatakan ia valid.
+
+- **Expiration sebagai bagian desain**  
+  Setiap file memiliki batas waktu hidup.  
+  Tidak semua data memang perlu disimpan lama.
+
+- **Eventual consistency diterima, tapi dikontrol**  
+  Sinkronisasi sempurna tidak dikejar.  
+  Yang dijaga adalah idempotency, kompensasi, dan batas dampak kegagalan.
+
+Pendekatan ini tidak menghilangkan kegagalan.  
+Ia hanya memastikan kegagalan tidak meninggalkan state yang sulit dijelaskan.
+
+---
+
+## Insight
+
+Pelajaran terpenting dari kasus ini bukan tentang file upload.  
+Melainkan tentang **cara memandang resource di sistem terdistribusi**.
+
+Banyak masalah muncul bukan karena implementasi yang salah,  
+tetapi karena lifecycle resource tidak pernah benar-benar dirancang.
+
+Beberapa trade-off tetap harus diterima:
+
+- Kompleksitas sistem bertambah  
+- Ada latency dan inkonsistensi sementara  
+- Tidak semua edge case bisa ditangani secara otomatis  
+
+Namun trade-off ini lebih sehat dibanding sistem yang perlahan menumpuk state tanpa pemilik.
+
+---
+
+## Penutup
+
+Seiring sistem tumbuh, hal-hal kecil yang dulu terasa sepele  
+mulai menuntut keputusan desain yang lebih sadar.
+
+File upload hanyalah salah satu contohnya —  
+bukan karena ia rumit, tetapi karena ia memaksa kita untuk serius memikirkan **ownership, failure, dan lifecycle** sejak awal.
