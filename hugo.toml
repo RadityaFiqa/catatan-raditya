@@ -1,0 +1,4 @@
+baseURL = 'https://radityaa.dev/'
+languageCode = 'en-us'
+title = 'Radityaa.dev'
+theme = "paper"

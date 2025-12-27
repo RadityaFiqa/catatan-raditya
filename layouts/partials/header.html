@@ -1,0 +1,148 @@
+<header class="mx-auto flex h-[4.5rem] max-w-(--w) px-8 whitespace-nowrap lg:justify-center">
+  <div class="relative z-50 flex items-center ltr:mr-auto rtl:ml-auto">
+    <a class="-translate-y-[1px] text-2xl font-medium" href="{{- `` | absURL -}}">{{ site.Title }}</a>
+
+  </div>
+
+  <div class="flex items-center ltr:ml-auto rtl:mr-auto gap-2 relative" style="gap: 20px;">
+    <div id="theme-color"
+      class="btn-dark ltr:ml-4 rtl:mr-4 h-9 w-9 flex items-center justify-center rounded-full cursor-pointer bg-gray-100 hover:bg-gray-200  transition"
+      role="button" aria-label="Dark">
+      <span class="darkmode-icon" aria-hidden="true">
+        <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="display:none;">
+          <circle cx="12" cy="12" r="5" />
+          <path
+            d="M12 1v2m0 18v2m11-11h-2M3 12H1m16.95 7.07-1.41-1.41M6.34 6.34 4.93 4.93m12.02 0-1.41 1.41M6.34 17.66l-1.41 1.41" />
+        </svg>
+        <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none"
+          stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z" />
+        </svg>
+      </span>
+    </div>
+
+    <!-- Tombol Search -->
+    <button id="search-toggle"
+      class="ml-2 flex items-center justify-center w-9 h-9 rounded-full bg-gray-100 hover:bg-gray-200 "
+      style="transition: background 0.2s;">
+      <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <circle cx="11" cy="11" r="7" />
+        <line x1="16.65" y1="16.65" x2="21" y2="21" />
+      </svg>
+    </button>
+
+      <!-- Search Box Floating -->
+  <div id="search-float"
+    style="display:none;position:absolute;top:3.5rem;right:0;z-index:9999;min-width:320px;max-width:90vw;">
+    {{ partial "search.html" . }}
+  </div>
+  </div>
+
+
+
+  {{- $bg_color := $.Scratch.Get "bg_color" -}}<!---->
+
+  <script>
+    // base
+    const htmlClass = document.documentElement.classList;
+    setTimeout(() => {
+      htmlClass.remove('not-ready');
+    }, 10);
+
+    // mobile menu
+
+    // dark theme
+    const metaTheme = document.querySelector('#theme-color');
+    const lightBg = '{{- $bg_color -}}'.replace(/"/g, '');
+    const setDark = (isDark) => {
+      metaTheme.setAttribute('content', isDark ? '#000' : lightBg);
+      htmlClass[isDark ? 'add' : 'remove']('dark');
+      localStorage.setItem('dark', isDark);
+    };
+
+    // init
+    const darkScheme = window.matchMedia('(prefers-color-scheme: dark)');
+    if (htmlClass.contains('dark')) {
+      setDark(true);
+    } else {
+      const darkVal = localStorage.getItem('dark');
+      setDark(darkVal ? darkVal === 'true' : darkScheme.matches);
+    }
+
+    // listen system
+    darkScheme.addEventListener('change', (event) => {
+      setDark(event.matches);
+    });
+
+    // manual switch
+    const btnDark = document.querySelector('.btn-dark');
+    const iconSun = document.getElementById('icon-sun');
+    const iconMoon = document.getElementById('icon-moon');
+    function updateDarkIcon() {
+      if (htmlClass.contains('dark')) {
+        iconSun.style.display = '';
+        iconMoon.style.display = 'none';
+      } else {
+        iconSun.style.display = 'none';
+        iconMoon.style.display = '';
+      }
+    }
+    btnDark.addEventListener('click', () => {
+      setDark(localStorage.getItem('dark') !== 'true');
+      updateDarkIcon();
+    });
+    // Initial icon state
+    updateDarkIcon();
+    // Search toggle logic
+    const searchToggle = document.getElementById('search-toggle');
+    const searchFloat = document.getElementById('search-float');
+    if (searchToggle && searchFloat) {
+      searchToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (searchFloat.style.display === 'none') {
+          searchFloat.style.display = 'block';
+          setTimeout(() => {
+            const input = searchFloat.querySelector('input');
+            if (input) input.focus();
+          }, 100);
+        } else {
+          searchFloat.style.display = 'none';
+        }
+      });
+      // Hide search if click outside
+      document.addEventListener('click', function (e) {
+        if (!searchFloat.contains(e.target) && e.target !== searchToggle) {
+          searchFloat.style.display = 'none';
+        }
+      });
+    }
+  </script>
+
+  <div
+    class="nav-wrapper fixed inset-x-0 top-full z-40 flex h-full flex-col justify-center bg-(--bg) pb-16 duration-200 select-none lg:static lg:h-auto lg:flex-row lg:bg-transparent! lg:pb-0 lg:transition-none">
+    {{- $url := .RelPermalink -}}<!---->
+    {{- with site.Menus.main -}}
+    <nav class="lg:ml-12 lg:flex lg:flex-row lg:items-center lg:space-x-10 rtl:space-x-reverse">
+      {{- range . -}}
+      <a class="block text-center text-xl leading-[5rem] lg:text-base lg:font-normal" href="{{- .URL -}}">{{- .Name
+        -}}</a>
+      {{- end -}}
+    </nav>
+    {{- end -}}<!---->
+
+    {{- with $.Scratch.Get "social_list" -}}
+    <nav
+      class="mt-12 flex justify-center space-x-10 lg:mt-0 lg:items-center ltr:lg:ml-14 rtl:space-x-reverse rtl:lg:mr-14 dark:invert">
+      {{- range . -}}<!---->
+      <a class="h-7 w-7 text-[0px] [background:var(--url)_center_center/cover_no-repeat] lg:h-6 lg:w-6"
+        style="--url: url(./{{- . -}}.svg)"
+        href="{{- if eq . `rss` -}}{{- `index.xml` | absURL -}}{{- else if eq . `mastodon` -}}{{- index site.Params . -}}{{- else -}}{{- if eq . `threads` -}}https://threads.net/{{- else if eq . `bluesky` -}}https://bsky.app/profile/{{- else -}}https://{{- . -}}.com/{{- end -}}{{- if eq . `linkedin` -}}in/{{- end -}}{{- index site.Params . -}}{{- end -}}"
+        target="_blank" rel="{{- if eq . `rss` -}}alternate{{- else -}}me{{- end -}}">
+        {{- . -}}
+      </a>
+      {{- end -}}<!---->
+    </nav>
+    {{- end -}}<!---->
+  </div>
+</header>
