@@ -1,6 +1,6 @@
 ---
 title: "Awal Mula Saya Menulis"
-date: 2025-12-27
+date: 2025-12-27T16:00:00+07:00
 description: "Tentang perjalanan menuju senior Software Engineer dan alasan saya mulai menuliskannya"
 tags: ["software-engineer", "career", "engineering", "backend"]
 categories: ["Engineering Journey"]
