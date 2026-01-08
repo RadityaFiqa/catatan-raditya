@@ -1,6 +1,6 @@
 ---
 title: "Case File Upload di Microservices: Dari Chaos ke Controlled Storage"
-date: 2025-12-27T17:00:00+07:00
+date: 2025-05-09T10:00:00+07:00
 description: "Refleksi file upload, distributed state, dan lifecycle resource di sistem microservices."
 tags: ["backend", "microservices", "architecture", "file-upload", "engineering-story"]
 categories: ["Engineering Journey"]
